@@ -1,0 +1,71 @@
+## Ignore build outputs
+bin/
+obj/
+out/
+.vs/
+publish/
+
+## Visual Studio user-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## VS Code settings
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+## .NET Core environment files
+*.env
+
+## Logs
+*.log
+logs/
+Log/
+LogFiles/
+
+## temp files
+*.tmp
+*.temp
+
+## NuGet packages
+*.nupkg
+packages/
+*.nuget.props
+*.nuget.targets
+
+## Auto-generated files
+Generated/
+GeneratedOutput/
+TestResults/
+
+## Publish profiles
+Properties/PublishProfiles/
+
+## Entity Framework
+Migrations/**/__EFMigrationsHistory
+*.dbmdl
+
+## Rider
+.idea/
+
+## OS specific
+# Windows
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+## Others
+*.pid
+*.seed
+*.cache
+*.pdb
