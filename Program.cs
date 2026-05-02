@@ -23,7 +23,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "Pharmacy Management System API",
         Version = "v1",
-        Description = "API for Pharmacy Management System - Thilanka Pharmacy POS",
+        Description = "API for Pharmacy Management System - Sethuwa Pharmacy POS",
         Contact = new OpenApiContact
         {
             Name = "Pharmacy Management System",
@@ -61,7 +61,7 @@ builder.Services.AddSwaggerGen(c =>
 
 // DB Context
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<ThilankaPharmacyDbContext>(options =>
+builder.Services.AddDbContext<SethuwaPharmacyDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 //loging

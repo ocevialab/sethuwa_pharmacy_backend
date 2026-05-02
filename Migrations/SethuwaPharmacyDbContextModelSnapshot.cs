@@ -10,8 +10,8 @@ using pharmacyPOS.API.Models;
 
 namespace pharmacyPOS.API.Migrations
 {
-    [DbContext(typeof(ThilankaPharmacyDbContext))]
-    partial class ThilankaPharmacyDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(SethuwaPharmacyDbContext))]
+    partial class SethuwaPharmacyDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {

@@ -11,7 +11,7 @@ using pharmacyPOS.API.Models;
 
 namespace pharmacyPOS.API.Migrations
 {
-    [DbContext(typeof(ThilankaPharmacyDbContext))]
+    [DbContext(typeof(SethuwaPharmacyDbContext))]
     [Migration("20251123030642_AddPaymentCompletedAtColumn")]
     partial class AddPaymentCompletedAtColumn
     {

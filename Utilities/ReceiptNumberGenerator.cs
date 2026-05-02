@@ -5,7 +5,7 @@ namespace pharmacyPOS.API.Utilities
 {
     public static class ReceiptNumberGenerator
     {
-        public static async Task<string> GenerateAsync(ThilankaPharmacyDbContext context)
+        public static async Task<string> GenerateAsync(SethuwaPharmacyDbContext context)
         {
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
 

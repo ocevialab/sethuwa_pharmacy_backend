@@ -4,13 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace pharmacyPOS.API.Models;
 
-public partial class ThilankaPharmacyDbContext : DbContext
+public partial class SethuwaPharmacyDbContext : DbContext
 {
-    public ThilankaPharmacyDbContext()
+    public SethuwaPharmacyDbContext()
     {
     }
 
-    public ThilankaPharmacyDbContext(DbContextOptions<ThilankaPharmacyDbContext> options)
+    public SethuwaPharmacyDbContext(DbContextOptions<SethuwaPharmacyDbContext> options)
         : base(options)
     {
     }
@@ -54,7 +54,7 @@ public partial class ThilankaPharmacyDbContext : DbContext
         {
             // Fallback connection string - should not be used when DbContext is configured via DI in Program.cs
             // This is only here for backwards compatibility or when using DbContext directly without DI
-            optionsBuilder.UseSqlServer("Server=localhost\\SQLEXPRESS;Database=ThilankaPharmacyDB;Trusted_Connection=True;TrustServerCertificate=True");
+            optionsBuilder.UseSqlServer("Server=localhost\\SQLEXPRESS;Database=SethuwaPharmacyDB;Trusted_Connection=True;TrustServerCertificate=True");
         }
     }
 

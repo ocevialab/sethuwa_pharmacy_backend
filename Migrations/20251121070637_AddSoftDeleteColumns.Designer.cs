@@ -11,7 +11,7 @@ using pharmacyPOS.API.Models;
 
 namespace pharmacyPOS.API.Migrations
 {
-    [DbContext(typeof(ThilankaPharmacyDbContext))]
+    [DbContext(typeof(SethuwaPharmacyDbContext))]
     [Migration("20251121070637_AddSoftDeleteColumns")]
     partial class AddSoftDeleteColumns
     {

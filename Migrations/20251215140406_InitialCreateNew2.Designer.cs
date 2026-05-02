@@ -11,7 +11,7 @@ using pharmacyPOS.API.Models;
 
 namespace pharmacyPOS.API.Migrations
 {
-    [DbContext(typeof(ThilankaPharmacyDbContext))]
+    [DbContext(typeof(SethuwaPharmacyDbContext))]
     [Migration("20251215140406_InitialCreateNew2")]
     partial class InitialCreateNew2
     {
