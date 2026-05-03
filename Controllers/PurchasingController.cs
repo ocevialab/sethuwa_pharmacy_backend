@@ -154,7 +154,8 @@ public class PurchasingController : ControllerBase
                 CostPrice = item.CostPrice,
                 SellingPrice = item.SellingPrice,
                 ExpireDate = DateOnly.FromDateTime(item.ExpireDate),
-                LotNumber = Guid.NewGuid().ToString().Substring(0, 8)
+                LotNumber = Guid.NewGuid().ToString().Substring(0, 8),
+                SupplierId = purchase.SupplierId
             };
             _context.Stocks.Add(stock);
         }

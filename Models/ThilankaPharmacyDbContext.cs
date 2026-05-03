@@ -391,6 +391,9 @@ public partial class SethuwaPharmacyDbContext : DbContext
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("Sub_Total");
 
+            entity.Property(e => e.StockId)
+                .HasColumnName("Stock_ID");
+
             entity.HasOne(d => d.ProductSkuNavigation).WithMany(p => p.SalesItems)
                 .HasForeignKey(d => d.ProductSku)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -400,6 +403,10 @@ public partial class SethuwaPharmacyDbContext : DbContext
                 .HasForeignKey(d => d.SalesId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__Sales_Ite__Sales__5EBF139D");
+
+            entity.HasOne(d => d.Stock).WithMany()
+                .HasForeignKey(d => d.StockId)
+                .HasConstraintName("FK_SalesItems_Stock");
         });
 
         modelBuilder.Entity<Payment>(entity =>
@@ -456,10 +463,19 @@ public partial class SethuwaPharmacyDbContext : DbContext
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("Selling_Price");
 
+            entity.Property(e => e.SupplierId)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("Supplier_ID");
+
             entity.HasOne(d => d.ProductSkuNavigation).WithMany(p => p.Stocks)
                 .HasForeignKey(d => d.ProductSku)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__Stock__Product_S__571DF1D5");
+
+            entity.HasOne(d => d.Supplier).WithMany()
+                .HasForeignKey(d => d.SupplierId)
+                .HasConstraintName("FK_Stock_Suppliers");
         });
 
         modelBuilder.Entity<Supplier>(entity =>

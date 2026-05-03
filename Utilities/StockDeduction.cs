@@ -5,6 +5,34 @@ namespace pharmacyPOS.API.Utilities;
 
 public static class StockDeduction
 {
+    public static async Task<bool> DeductFromBatch(
+        SethuwaPharmacyDbContext context,
+        long stockId,
+        string productSku,
+        int quantity,
+        long saleId)
+    {
+        var batch = await context.Stocks
+            .FirstOrDefaultAsync(s => s.StockId == stockId && s.ProductSku == productSku);
+
+        if (batch == null || batch.QuantityOnHand < quantity)
+            return false;
+
+        batch.QuantityOnHand -= quantity;
+
+        context.StockMovements.Add(new StockMovement
+        {
+            ProductSku = productSku,
+            Stock_Id = stockId,
+            QuantityChanged = -quantity,
+            Reason = "Sale",
+            SalesId = saleId,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        return true;
+    }
+
     public static async Task<bool> DeductUsingFEFO(
     SethuwaPharmacyDbContext context,
     string productSku,

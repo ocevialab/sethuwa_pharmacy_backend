@@ -19,5 +19,9 @@ public partial class Stock
 
     public decimal SellingPrice { get; set; }
 
+    public string? SupplierId { get; set; }
+
     public virtual Product ProductSkuNavigation { get; set; } = null!;
+
+    public virtual Supplier? Supplier { get; set; }
 }
