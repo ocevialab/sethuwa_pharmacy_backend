@@ -150,7 +150,10 @@ builder.Services.AddCors(options =>
                 "https://www.ocevialabphramacy.netlify.app",
                 "https://pharmacy.ocevialab.com",
                 "https://www.pharmacy.ocevialab.com",
-                "https://sethuwa-phama.ocevialab.com"
+                "https://sethuwa-phama.ocevialab.com",
+                "http://sethuwa-phama.ocevialab.com",
+                "http://sethuwa-phama-qa.ocevialab.com",
+                "https://sethuwa-phama-qa.ocevialab.com"
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
@@ -177,7 +180,12 @@ if (app.Environment.IsDevelopment() || app.Environment.IsProduction() || app.Env
 // CORS must be configured BEFORE UseAuthentication and UseAuthorization
 app.UseCors("AllowFrontend");
 
-app.UseHttpsRedirection();
+// Behind reverse proxy Kestrel is often HTTP-only. Redirecting OPTIONS breaks CORS preflight
+// when X-Forwarded-Proto is missing on that hop.
+app.UseWhen(
+    static ctx => !HttpMethods.IsOptions(ctx.Request.Method),
+    static branch => branch.UseHttpsRedirection());
+
 app.UseAuthentication();
 app.UseAuthorization();
 
