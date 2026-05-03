@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using pharmacyPOS.API.Models;
@@ -9,6 +10,14 @@ using Serilog;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Reverse proxy (nginx): TLS termination, correct scheme for redirects and links
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // Add Controllers
 builder.Services.AddControllers();
@@ -139,7 +148,8 @@ builder.Services.AddCors(options =>
                 "https://ocevialabphramacy.netlify.app",
                 "https://www.ocevialabphramacy.netlify.app",
                 "https://pharmacy.ocevialab.com",
-    "https://www.pharmacy.ocevialab.com"
+                "https://www.pharmacy.ocevialab.com",
+                "https://sethuwa-phama.ocevialab.com"
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
@@ -150,8 +160,10 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
+
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
+if (app.Environment.IsDevelopment() || app.Environment.IsProduction() || app.Environment.IsEnvironment("QA"))
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
