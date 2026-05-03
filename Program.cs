@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using pharmacyPOS.API.Models;
 using pharmacyPOS.API.Authorization;
+using pharmacyPOS.API.Data;
 using Serilog;
 using Microsoft.OpenApi.Models;
 
@@ -181,4 +182,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.Run();
+
+if (app.Environment.IsProduction() || app.Environment.IsEnvironment("QA"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<SethuwaPharmacyDbContext>();
+    var seedLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DeploymentSeeder");
+    await DeploymentSeeder.SeedAsync(db, seedLogger);
+}
+
+await app.RunAsync();
