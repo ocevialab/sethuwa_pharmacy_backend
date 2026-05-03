@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using pharmacyPOS.API.Models;
 
@@ -11,9 +12,11 @@ using pharmacyPOS.API.Models;
 namespace pharmacyPOS.API.Migrations
 {
     [DbContext(typeof(SethuwaPharmacyDbContext))]
-    partial class SethuwaPharmacyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260503000001_SeedOwnerEmployee")]
+    partial class SeedOwnerEmployee
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -766,8 +769,7 @@ namespace pharmacyPOS.API.Migrations
                         .HasColumnName("Product_SKU");
 
                     b.Property<int>("QuantityOnHand")
-                        .HasColumnType("int")
-                        .HasColumnName("Quantity_on_Hand");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("SellingPrice")
                         .HasColumnType("decimal(18, 2)")
@@ -857,218 +859,6 @@ namespace pharmacyPOS.API.Migrations
                     b.ToTable("Suppliers");
                 });
 
-            modelBuilder.Entity("pharmacyPOS.API.Models.CustomerRecurrentItem", b =>
-                {
-                    b.HasOne("pharmacyPOS.API.Models.Customer", "Customer")
-                        .WithMany("CustomerRecurrentItems")
-                        .HasForeignKey("CustomerId")
-                        .IsRequired()
-                        .HasConstraintName("FK__Customer___Custo__4AB81AF0");
-
-                    b.HasOne("pharmacyPOS.API.Models.Product", "ProductSkuNavigation")
-                        .WithMany("CustomerRecurrentItems")
-                        .HasForeignKey("ProductSku")
-                        .IsRequired()
-                        .HasConstraintName("FK__Customer___Produ__4BAC3F29");
-
-                    b.Navigation("Customer");
-
-                    b.Navigation("ProductSkuNavigation");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.EmployeePermission", b =>
-                {
-                    b.HasOne("pharmacyPOS.API.Models.Employee", "Employee")
-                        .WithMany("EmployeePermissions")
-                        .HasForeignKey("EmployeeId")
-                        .IsRequired()
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .HasConstraintName("FK_EmployeePermissions_Employee");
-
-                    b.HasOne("pharmacyPOS.API.Models.Permission", "Permission")
-                        .WithMany("EmployeePermissions")
-                        .HasForeignKey("PermissionId")
-                        .IsRequired()
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .HasConstraintName("FK_EmployeePermissions_Permission");
-
-                    b.Navigation("Employee");
-
-                    b.Navigation("Permission");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Payment", b =>
-                {
-                    b.HasOne("pharmacyPOS.API.Models.Sale", "Sale")
-                        .WithMany("Payments")
-                        .HasForeignKey("SalesId")
-                        .IsRequired()
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .HasConstraintName("FK_Payments_Sales");
-
-                    b.Navigation("Sale");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Product", b =>
-                {
-                    b.HasOne("pharmacyPOS.API.Models.Glossary", "Glossary")
-                        .WithMany("Products")
-                        .HasForeignKey("GlossaryId")
-                        .HasConstraintName("FK__Products__Glossa__4316F928");
-
-                    b.HasOne("pharmacyPOS.API.Models.Medicine", "Medicine")
-                        .WithMany("Products")
-                        .HasForeignKey("MedicineId")
-                        .HasConstraintName("FK__Products__Medici__4222D4EF");
-
-                    b.Navigation("Glossary");
-
-                    b.Navigation("Medicine");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Purchase", b =>
-                {
-                    b.HasOne("pharmacyPOS.API.Models.Supplier", "Supplier")
-                        .WithMany("Purchases")
-                        .HasForeignKey("SupplierId")
-                        .IsRequired()
-                        .HasConstraintName("FK__Purchases__Suppl__4F7CD00D");
-
-                    b.Navigation("Supplier");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.PurchaseItem", b =>
-                {
-                    b.HasOne("pharmacyPOS.API.Models.Product", "ProductSkuNavigation")
-                        .WithMany("PurchaseItems")
-                        .HasForeignKey("ProductSku")
-                        .IsRequired()
-                        .HasConstraintName("FK__Purchase___Produ__534D60F1");
-
-                    b.HasOne("pharmacyPOS.API.Models.Purchase", "Purchase")
-                        .WithMany("PurchaseItems")
-                        .HasForeignKey("PurchaseId")
-                        .IsRequired()
-                        .HasConstraintName("FK__Purchase___Purch__52593CB8");
-
-                    b.Navigation("ProductSkuNavigation");
-
-                    b.Navigation("Purchase");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Sale", b =>
-                {
-                    b.HasOne("pharmacyPOS.API.Models.Employee", "BilledBy")
-                        .WithMany("SaleBilledBies")
-                        .HasForeignKey("BilledById")
-                        .HasConstraintName("FK__Sales__Billed_By__5AEE82B9");
-
-                    b.HasOne("pharmacyPOS.API.Models.Customer", "Customer")
-                        .WithMany("Sales")
-                        .HasForeignKey("CustomerId")
-                        .HasConstraintName("FK__Sales__Customer___5BE2A6F2");
-
-                    b.HasOne("pharmacyPOS.API.Models.Employee", "IssuedBy")
-                        .WithMany("SaleIssuedBies")
-                        .HasForeignKey("IssuedById")
-                        .IsRequired()
-                        .HasConstraintName("FK__Sales__Issued_By__59FA5E80");
-
-                    b.Navigation("BilledBy");
-
-                    b.Navigation("Customer");
-
-                    b.Navigation("IssuedBy");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.SalesItem", b =>
-                {
-                    b.HasOne("pharmacyPOS.API.Models.Product", "ProductSkuNavigation")
-                        .WithMany("SalesItems")
-                        .HasForeignKey("ProductSku")
-                        .IsRequired()
-                        .HasConstraintName("FK__Sales_Ite__Produ__5FB337D6");
-
-                    b.HasOne("pharmacyPOS.API.Models.Sale", "Sales")
-                        .WithMany("SalesItems")
-                        .HasForeignKey("SalesId")
-                        .IsRequired()
-                        .HasConstraintName("FK__Sales_Ite__Sales__5EBF139D");
-
-                    b.Navigation("ProductSkuNavigation");
-
-                    b.Navigation("Sales");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Stock", b =>
-                {
-                    b.HasOne("pharmacyPOS.API.Models.Product", "ProductSkuNavigation")
-                        .WithMany("Stocks")
-                        .HasForeignKey("ProductSku")
-                        .IsRequired()
-                        .HasConstraintName("FK__Stock__Product_S__571DF1D5");
-
-                    b.Navigation("ProductSkuNavigation");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Customer", b =>
-                {
-                    b.Navigation("CustomerRecurrentItems");
-
-                    b.Navigation("Sales");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Employee", b =>
-                {
-                    b.Navigation("EmployeePermissions");
-
-                    b.Navigation("SaleBilledBies");
-
-                    b.Navigation("SaleIssuedBies");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Glossary", b =>
-                {
-                    b.Navigation("Products");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Medicine", b =>
-                {
-                    b.Navigation("Products");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Permission", b =>
-                {
-                    b.Navigation("EmployeePermissions");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Product", b =>
-                {
-                    b.Navigation("CustomerRecurrentItems");
-
-                    b.Navigation("PurchaseItems");
-
-                    b.Navigation("SalesItems");
-
-                    b.Navigation("Stocks");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Purchase", b =>
-                {
-                    b.Navigation("PurchaseItems");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Sale", b =>
-                {
-                    b.Navigation("Payments");
-
-                    b.Navigation("SalesItems");
-                });
-
-            modelBuilder.Entity("pharmacyPOS.API.Models.Supplier", b =>
-                {
-                    b.Navigation("Purchases");
-                });
 #pragma warning restore 612, 618
         }
     }

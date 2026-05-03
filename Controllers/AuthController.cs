@@ -32,7 +32,7 @@ public class AuthController : ControllerBase
         if (!BCrypt.Net.BCrypt.Verify(request.Password, employee.PasswordHash))
             return Unauthorized("Invalid Password");
 
-        if (employee.EmployeeStatus != "Active")
+        if (employee.EmployeeStatus != "ACTIVE")
             return Unauthorized("Employee is inactive.");
 
         var token = GenerateJwt(employee);

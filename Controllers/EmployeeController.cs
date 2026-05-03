@@ -53,7 +53,7 @@ public class EmployeeController : ControllerBase
                 ContactNumber = dto.ContactNumber ?? string.Empty,
                 EmailAddress = dto.EmailAddress,
                 Address = dto.Address,
-                EmployeeStatus = dto.EmployeeStatus,
+                EmployeeStatus = dto.EmployeeStatus?.ToUpper() ?? "ACTIVE",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password)
             };
 
@@ -156,7 +156,7 @@ public class EmployeeController : ControllerBase
         employee.Role = dto.Role?.ToUpper() ?? string.Empty;
         employee.ContactNumber = dto.ContactNumber ?? string.Empty;
         employee.Address = dto.Address;
-        employee.EmployeeStatus = dto.EmployeeStatus;
+        employee.EmployeeStatus = dto.EmployeeStatus?.ToUpper() ?? employee.EmployeeStatus;
 
         await _context.SaveChangesAsync();
 
