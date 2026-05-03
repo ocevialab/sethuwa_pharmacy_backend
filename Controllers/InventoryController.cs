@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using pharmacyPOS.API.DTOs;
 using pharmacyPOS.API.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Authorization;
 using pharmacyPOS.API.Authorization;
@@ -59,9 +60,11 @@ public class InventoryController : ControllerBase
         };
         _logger.LogInformation("Item detail data prepared: {@ItemData}", itemData);
 
-        // 2. Fetch Real-Time Stock Batches 
+        // 2. Fetch Real-Time Stock Batches (include supplier info) — FEFO: earliest expiry, then oldest Stock_ID
         var stockBatches = await _context.Stocks
             .Where(s => s.ProductSku == sku && s.QuantityOnHand > 0)
+            .OrderBy(s => s.ExpireDate)
+            .ThenBy(s => s.StockId)
             .Select(s => new StockBatchDto
             {
                 StockId = s.StockId,
@@ -69,7 +72,9 @@ public class InventoryController : ControllerBase
                 ExpireDate = s.ExpireDate.ToDateTime(TimeOnly.MinValue),
                 CostPrice = s.CostPrice,
                 SellingPrice = s.SellingPrice,
-                LotNumber = s.LotNumber
+                LotNumber = s.LotNumber,
+                SupplierId = s.SupplierId,
+                SupplierName = s.Supplier != null ? s.Supplier.SupplierName : null
             })
             .ToListAsync();
         _logger.LogInformation("Stock batches retrieved: {@StockBatches}", stockBatches);
@@ -82,6 +87,103 @@ public class InventoryController : ControllerBase
         return itemData;
     }
 
+
+    // GET: api/Inventory/batches/MED-10001
+    // Returns all available stock batches for a product with supplier info — used by POS batch picker
+    [RequirePermission("inventory:view_details")]
+    [HttpGet("batches/{sku}")]
+    public async Task<IActionResult> GetStockBatchesForProduct(string sku)
+    {
+        _logger.LogInformation("Fetching available stock batches for SKU: {SKU}", sku);
+
+        var product = await _context.Products
+            .FirstOrDefaultAsync(p => p.ProductSku == sku && !p.IsDeleted);
+
+        if (product == null)
+            return NotFound($"Product with SKU {sku} not found.");
+
+        var batches = await _context.Stocks
+            .Where(s => s.ProductSku == sku && s.QuantityOnHand > 0)
+            .OrderBy(s => s.ExpireDate)
+            .ThenBy(s => s.StockId)
+            .Select(s => new StockBatchDto
+            {
+                StockId = s.StockId,
+                QuantityOnHand = s.QuantityOnHand,
+                ExpireDate = s.ExpireDate.ToDateTime(TimeOnly.MinValue),
+                CostPrice = s.CostPrice,
+                SellingPrice = s.SellingPrice,
+                LotNumber = s.LotNumber,
+                SupplierId = s.SupplierId,
+                SupplierName = s.Supplier != null ? s.Supplier.SupplierName : null
+            })
+            .ToListAsync();
+
+        return Ok(batches);
+    }
+
+    /// <summary>
+    /// POST: api/Inventory/batches-for-sale — in-stock batches per SKU for POS (one round-trip).
+    /// Ordering per SKU: in-stock rows only; FEFO — earliest Expire_Date, then Stock_ID (older batch first).
+    /// </summary>
+    [RequirePermission("inventory:view_details")]
+    [HttpPost("batches-for-sale")]
+    public async Task<IActionResult> GetBatchesForSale([FromBody] List<string>? productSkus)
+    {
+        if (productSkus == null || productSkus.Count == 0)
+            return Ok(new Dictionary<string, List<StockBatchDto>>());
+
+        var distinct = productSkus
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct()
+            .ToList();
+
+        if (distinct.Count == 0)
+            return Ok(new Dictionary<string, List<StockBatchDto>>());
+
+        var rows = await _context.Stocks
+            .Where(s => distinct.Contains(s.ProductSku) && s.QuantityOnHand > 0)
+            .Select(s => new
+            {
+                s.ProductSku,
+                s.StockId,
+                s.QuantityOnHand,
+                s.ExpireDate,
+                s.CostPrice,
+                s.SellingPrice,
+                s.LotNumber,
+                s.SupplierId,
+                SupplierName = s.Supplier != null ? s.Supplier.SupplierName : null
+            })
+            .ToListAsync();
+
+        var result = new Dictionary<string, List<StockBatchDto>>(StringComparer.Ordinal);
+
+        foreach (var sku in distinct)
+        {
+            var list = rows
+                .Where(x => x.ProductSku == sku)
+                .OrderBy(x => x.ExpireDate)
+                .ThenBy(x => x.StockId)
+                .Select(x => new StockBatchDto
+                {
+                    StockId = x.StockId,
+                    QuantityOnHand = x.QuantityOnHand,
+                    ExpireDate = x.ExpireDate.ToDateTime(TimeOnly.MinValue),
+                    CostPrice = x.CostPrice,
+                    SellingPrice = x.SellingPrice,
+                    LotNumber = x.LotNumber,
+                    SupplierId = x.SupplierId,
+                    SupplierName = x.SupplierName
+                })
+                .ToList();
+
+            if (list.Count > 0)
+                result[sku] = list;
+        }
+
+        return Ok(result);
+    }
 
     [RequirePermission("inventory:view_list")]
     [HttpGet("list")]
@@ -99,6 +201,27 @@ public class InventoryController : ControllerBase
                     (p.ProductType == "Glossary" && p.Glossary!.Name.ToLower().Contains(q))
                    ))
             .ToListAsync();
+
+        var productSkuList = products.Select(p => p.ProductSku).ToList();
+
+        var supplierRows = await _context.Stocks
+            .Where(s => productSkuList.Contains(s.ProductSku) && s.QuantityOnHand > 0)
+            .Select(s => new
+            {
+                s.ProductSku,
+                SupplierName = s.Supplier != null ? s.Supplier.SupplierName : null
+            })
+            .ToListAsync();
+
+        var supplierSummaryBySku = supplierRows
+            .GroupBy(x => x.ProductSku)
+            .ToDictionary(
+                g => g.Key,
+                g => string.Join(", ", g
+                    .Select(x => x.SupplierName)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct()
+                    .OrderBy(n => n)));
 
         var result = new List<ProductListItemDto>();
 
@@ -124,6 +247,8 @@ public class InventoryController : ControllerBase
                 ? p.Medicine!.LowStockThreshold ?? 0
                 : p.Glossary!.LowStockThreshold;
 
+            supplierSummaryBySku.TryGetValue(p.ProductSku, out var supplierSummary);
+
             result.Add(new ProductListItemDto
             {
                 ProductSku = p.ProductSku,
@@ -131,7 +256,8 @@ public class InventoryController : ControllerBase
                 Stock = stock,
                 UnitPrice = price,
                 LowStockThreshold = lowThreshold,
-                ProductType = p.ProductType
+                ProductType = p.ProductType,
+                SupplierSummary = string.IsNullOrWhiteSpace(supplierSummary) ? null : supplierSummary
             });
         }
 
@@ -201,6 +327,25 @@ public class InventoryController : ControllerBase
             })
             .ToDictionaryAsync(x => x.ProductSku, x => x.SellingPrice);
 
+        var supplierRows = await _context.Stocks
+            .Where(s => productSkus.Contains(s.ProductSku) && s.QuantityOnHand > 0)
+            .Select(s => new
+            {
+                s.ProductSku,
+                SupplierName = s.Supplier != null ? s.Supplier.SupplierName : null
+            })
+            .ToListAsync();
+
+        var supplierSummaryBySku = supplierRows
+            .GroupBy(x => x.ProductSku)
+            .ToDictionary(
+                g => g.Key,
+                g => string.Join(", ", g
+                    .Select(x => x.SupplierName)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct()
+                    .OrderBy(n => n)));
+
         // Map to DTOs
         var result = products.Select(p =>
         {
@@ -215,6 +360,8 @@ public class InventoryController : ControllerBase
                 ? (p.Medicine?.LowStockThreshold ?? 0)
                 : (p.Glossary?.LowStockThreshold ?? 0);
 
+            supplierSummaryBySku.TryGetValue(p.ProductSku, out var supplierSummary);
+
             return new ProductListItemDto
             {
                 ProductSku = p.ProductSku,
@@ -222,7 +369,8 @@ public class InventoryController : ControllerBase
                 Stock = stock,
                 UnitPrice = price,
                 LowStockThreshold = lowThreshold,
-                ProductType = p.ProductType
+                ProductType = p.ProductType,
+                SupplierSummary = string.IsNullOrWhiteSpace(supplierSummary) ? null : supplierSummary
             };
         }).ToList();
 

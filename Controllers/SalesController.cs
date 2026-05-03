@@ -55,7 +55,7 @@ public class SalesController : ControllerBase
             _context.Sales.Add(sale);
             await _context.SaveChangesAsync(); // get sale.SalesId
 
-            // 2️⃣ FEFO Deduction + Create SaleItems (ONE LOOP)
+            // 2️⃣ Stock Deduction + Create SaleItems (ONE LOOP)
             foreach (var item in dto.Items)
             {
                 var product = await _context.Products
@@ -64,19 +64,33 @@ public class SalesController : ControllerBase
                 if (product == null)
                     return BadRequest($"Invalid product SKU: {item.ProductSku}");
 
-                // FEFO deduction BEFORE writing SaleItem
-                bool ok = await StockDeduction.DeductUsingFEFO(_context, item.ProductSku, item.Quantity, sale.SalesId);
-                if (!ok)
-                    return BadRequest($"Insufficient stock for product: {item.ProductSku}");
+                long? selectedStockId = null;
 
-                // Create sale item (ONLY ONCE)
+                if (item.StockId.HasValue)
+                {
+                    // Cashier selected a specific batch — deduct from it directly
+                    bool ok = await StockDeduction.DeductFromBatch(_context, item.StockId.Value, item.ProductSku, item.Quantity, sale.SalesId);
+                    if (!ok)
+                        return BadRequest($"Insufficient stock in selected batch for product: {item.ProductSku}");
+                    selectedStockId = item.StockId.Value;
+                }
+                else
+                {
+                    // No batch selected — fall back to FEFO auto-deduction
+                    bool ok = await StockDeduction.DeductUsingFEFO(_context, item.ProductSku, item.Quantity, sale.SalesId);
+                    if (!ok)
+                        return BadRequest($"Insufficient stock for product: {item.ProductSku}");
+                }
+
+                // Create sale item recording which batch was used
                 var saleItem = new SalesItem
                 {
                     SalesId = sale.SalesId,
                     ProductSku = item.ProductSku,
                     Quantity = item.Quantity,
                     SellingPrice = item.SubTotal / item.Quantity,
-                    SubTotal = item.SubTotal
+                    SubTotal = item.SubTotal,
+                    StockId = selectedStockId
                 };
 
                 _context.SalesItems.Add(saleItem);
@@ -1215,6 +1229,56 @@ public class SalesController : ControllerBase
         _logger.LogInformation("Successfully retrieved sale with ID: {SalesId}", sale.SalesId);
 
         return Ok(saleDto);
+    }
+
+    // GET: api/Sales/summary/by-supplier?fromDate=2026-01-01&toDate=2026-01-31
+    [RequirePermission("sales:view_summary")]
+    [HttpGet("summary/by-supplier")]
+    public async Task<IActionResult> GetSalesBySupplier(
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate = null)
+    {
+        _logger.LogInformation("Fetching sales summary by supplier, fromDate: {From}, toDate: {To}", fromDate, toDate);
+
+        // Query SalesItems that have a linked StockId → join to Stock → Supplier
+        var query = _context.SalesItems
+            .Include(si => si.Sales)
+            .Include(si => si.Stock)
+                .ThenInclude(s => s!.Supplier)
+            .Where(si => si.StockId != null &&
+                         si.Sales.SaleStatus == "Paid" || si.Sales.SaleStatus == "PartiallyPaid");
+
+        if (fromDate.HasValue)
+            query = query.Where(si => si.Sales.Date >= fromDate.Value);
+
+        if (toDate.HasValue)
+            query = query.Where(si => si.Sales.Date <= toDate.Value);
+
+        var items = await query.ToListAsync();
+
+        var grouped = items
+            .GroupBy(si => new
+            {
+                SupplierId = si.Stock?.SupplierId ?? "UNKNOWN",
+                SupplierName = si.Stock?.Supplier?.SupplierName ?? "Unknown Supplier"
+            })
+            .Select(g => new
+            {
+                g.Key.SupplierId,
+                g.Key.SupplierName,
+                TotalUnitsSold = g.Sum(si => si.Quantity),
+                TotalRevenue = g.Sum(si => si.SubTotal),
+                BatchCount = g.Select(si => si.StockId).Distinct().Count()
+            })
+            .OrderByDescending(x => x.TotalRevenue)
+            .ToList();
+
+        return Ok(new
+        {
+            FromDate = fromDate,
+            ToDate = toDate,
+            Data = grouped
+        });
     }
 
     //TEST SALE RECEIPT

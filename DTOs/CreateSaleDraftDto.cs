@@ -14,7 +14,9 @@ public class CreateReceiptItemDto
     [Required]
     public decimal SubTotal { get; set; }
 
-
+    // Optional: cashier-selected stock batch. When provided, deducts from this specific batch.
+    // When null, falls back to FEFO auto-deduction.
+    public long? StockId { get; set; }
 }
 
 public class CreateReceiptWithItemsDto

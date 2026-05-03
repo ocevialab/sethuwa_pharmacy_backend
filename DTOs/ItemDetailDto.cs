@@ -29,5 +29,7 @@ namespace pharmacyPOS.API.DTOs
         public decimal CostPrice { get; set; }
         public decimal SellingPrice { get; set; }
         public string? LotNumber { get; set; }
+        public string? SupplierId { get; set; }
+        public string? SupplierName { get; set; }
     }
 }

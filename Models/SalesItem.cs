@@ -17,7 +17,11 @@ public partial class SalesItem
 
     public decimal SubTotal { get; set; }
 
+    public long? StockId { get; set; }
+
     public virtual Product ProductSkuNavigation { get; set; } = null!;
 
     public virtual Sale Sales { get; set; } = null!;
+
+    public virtual Stock? Stock { get; set; }
 }
