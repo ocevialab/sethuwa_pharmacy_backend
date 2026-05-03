@@ -33,7 +33,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "Pharmacy Management System API",
         Version = "v1",
-        Description = "API for Pharmacy Management System - Sethuwa Pharmacy POS",
+        Description = "API for Pharmacy Management System - Sethsuwa Pharmacy POS",
         Contact = new OpenApiContact
         {
             Name = "Pharmacy Management System",
@@ -71,7 +71,7 @@ builder.Services.AddSwaggerGen(c =>
 
 // DB Context
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<SethuwaPharmacyDbContext>(options =>
+builder.Services.AddDbContext<SethsuwaPharmacyDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 //loging
@@ -150,10 +150,10 @@ builder.Services.AddCors(options =>
                 "https://www.ocevialabphramacy.netlify.app",
                 "https://pharmacy.ocevialab.com",
                 "https://www.pharmacy.ocevialab.com",
-                "https://sethuwa-phama.ocevialab.com",
-                "http://sethuwa-phama.ocevialab.com",
-                "http://sethuwa-phama-qa.ocevialab.com",
-                "https://sethuwa-phama-qa.ocevialab.com"
+                "https://sethsuwa-phama.ocevialab.com",
+                "http://sethsuwa-phama.ocevialab.com",
+                "http://sethsuwa-phama-qa.ocevialab.com",
+                "https://sethsuwa-phama-qa.ocevialab.com"
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
@@ -194,7 +194,7 @@ app.MapControllers();
 if (app.Environment.IsProduction() || app.Environment.IsEnvironment("QA"))
 {
     await using var scope = app.Services.CreateAsyncScope();
-    var db = scope.ServiceProvider.GetRequiredService<SethuwaPharmacyDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<SethsuwaPharmacyDbContext>();
     var seedLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DeploymentSeeder");
     await DeploymentSeeder.SeedAsync(db, seedLogger);
 }

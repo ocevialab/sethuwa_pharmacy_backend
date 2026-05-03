@@ -6,11 +6,11 @@ namespace pharmacyPOS.API.Authorization;
 
 public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionRequirement>
 {
-    private readonly SethuwaPharmacyDbContext _context;
+    private readonly SethsuwaPharmacyDbContext _context;
     private readonly ILogger<PermissionAuthorizationHandler> _logger;
 
     public PermissionAuthorizationHandler(
-        SethuwaPharmacyDbContext context,
+        SethsuwaPharmacyDbContext context,
         ILogger<PermissionAuthorizationHandler> logger)
     {
         _context = context;
@@ -59,11 +59,11 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
 // Handler for AnyPermissionRequirement (OR logic)
 public class AnyPermissionAuthorizationHandler : AuthorizationHandler<AnyPermissionRequirement>
 {
-    private readonly SethuwaPharmacyDbContext _context;
+    private readonly SethsuwaPharmacyDbContext _context;
     private readonly ILogger<AnyPermissionAuthorizationHandler> _logger;
 
     public AnyPermissionAuthorizationHandler(
-        SethuwaPharmacyDbContext context,
+        SethsuwaPharmacyDbContext context,
         ILogger<AnyPermissionAuthorizationHandler> logger)
     {
         _context = context;

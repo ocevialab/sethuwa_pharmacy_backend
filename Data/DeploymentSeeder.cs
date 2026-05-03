@@ -16,7 +16,7 @@ public static class DeploymentSeeder
     /// <summary>Default login when EMP-1 is first created (change after first login in production).</summary>
     private const string DefaultOwnerPlainPassword = "Admin@1234";
 
-    public static async Task SeedAsync(SethuwaPharmacyDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+    public static async Task SeedAsync(SethsuwaPharmacyDbContext db, ILogger logger, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
 

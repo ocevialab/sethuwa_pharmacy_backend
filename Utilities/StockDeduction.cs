@@ -6,7 +6,7 @@ namespace pharmacyPOS.API.Utilities;
 public static class StockDeduction
 {
     public static async Task<bool> DeductFromBatch(
-        SethuwaPharmacyDbContext context,
+        SethsuwaPharmacyDbContext context,
         long stockId,
         string productSku,
         int quantity,
@@ -34,7 +34,7 @@ public static class StockDeduction
     }
 
     public static async Task<bool> DeductUsingFEFO(
-    SethuwaPharmacyDbContext context,
+    SethsuwaPharmacyDbContext context,
     string productSku,
     int quantity,
     long saleId)

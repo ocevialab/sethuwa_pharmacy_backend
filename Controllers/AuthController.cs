@@ -11,10 +11,10 @@ using BCrypt.Net;
 [ApiController]
 public class AuthController : ControllerBase
 {
-    private readonly SethuwaPharmacyDbContext _context;
+    private readonly SethsuwaPharmacyDbContext _context;
     private readonly IConfiguration _config;
 
-    public AuthController(SethuwaPharmacyDbContext context, IConfiguration config)
+    public AuthController(SethsuwaPharmacyDbContext context, IConfiguration config)
     {
         _context = context;
         _config = config;

@@ -1,16 +1,16 @@
-# QA: https://sethuwa-phama.ocevialab.com
+# QA: https://sethsuwa-phama.ocevialab.com
 # Copy to /etc/nginx/sites-available/ and symlink sites-enabled; then certbot --nginx.
 #
 # Assumes:
-#   - SPA static files: /var/www/sethuwa-phama-qa/html
+#   - SPA static files: /var/www/sethsuwa-phama-qa/html
 #   - Kestrel (systemd): http://127.0.0.1:5180
 
 server {
     listen 80;
     listen [::]:80;
-    server_name sethuwa-phama.ocevialab.com;
+    server_name sethsuwa-phama.ocevialab.com;
 
-    root /var/www/sethuwa-phama-qa/html;
+    root /var/www/sethsuwa-phama-qa/html;
     index index.html;
 
     location /api/ {
@@ -28,6 +28,6 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    access_log /var/log/nginx/sethuwa-phama-qa.access.log;
-    error_log  /var/log/nginx/sethuwa-phama-qa.error.log;
+    access_log /var/log/nginx/sethsuwa-phama-qa.access.log;
+    error_log  /var/log/nginx/sethsuwa-phama-qa.error.log;
 }

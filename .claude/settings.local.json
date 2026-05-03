@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(Rename-Item \"f:\\\\ausiviaLab\\\\Sethuwa Pharmacy\\\\pharamay_management_system_backend\\\\Migrations\\\\ThilankaPharmacyDbContextModelSnapshot.cs\" \"SethuwaPharmacyDbContextModelSnapshot.cs\")"
+      "PowerShell(Rename-Item \"f:\\\\ausiviaLab\\\\Sethsuwa Pharmacy\\\\pharamay_management_system_backend\\\\Migrations\\\\ThilankaPharmacyDbContextModelSnapshot.cs\" \"SethsuwaPharmacyDbContextModelSnapshot.cs\")"
     ]
   }
 }

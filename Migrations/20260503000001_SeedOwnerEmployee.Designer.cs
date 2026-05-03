@@ -11,7 +11,7 @@ using pharmacyPOS.API.Models;
 
 namespace pharmacyPOS.API.Migrations
 {
-    [DbContext(typeof(SethuwaPharmacyDbContext))]
+    [DbContext(typeof(SethsuwaPharmacyDbContext))]
     [Migration("20260503000001_SeedOwnerEmployee")]
     partial class SeedOwnerEmployee
     {

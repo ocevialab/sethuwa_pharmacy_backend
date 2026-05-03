@@ -1,16 +1,16 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 
 namespace pharmacyPOS.API.Models;
 
-public partial class SethuwaPharmacyDbContext : DbContext
+public partial class SethsuwaPharmacyDbContext : DbContext
 {
-    public SethuwaPharmacyDbContext()
+    public SethsuwaPharmacyDbContext()
     {
     }
 
-    public SethuwaPharmacyDbContext(DbContextOptions<SethuwaPharmacyDbContext> options)
+    public SethsuwaPharmacyDbContext(DbContextOptions<SethsuwaPharmacyDbContext> options)
         : base(options)
     {
     }

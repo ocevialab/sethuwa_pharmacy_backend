@@ -1,29 +1,29 @@
 # Install on VPS (adjust paths and user):
-#   sudo cp sethuwa-phama-api-qa.service.example /etc/systemd/system/sethuwa-phama-api-qa.service
+#   sudo cp sethsuwa-phama-api-qa.service.example /etc/systemd/system/sethsuwa-phama-api-qa.service
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now sethuwa-phama-api-qa
+#   sudo systemctl enable --now sethsuwa-phama-api-qa
 #
-# Create /etc/sethuwa-phama-qa/api.env with:
+# Create /etc/sethsuwa-phama-qa/api.env with:
 #   ASPNETCORE_URLS=http://127.0.0.1:5180
 #   ConnectionStrings__DefaultConnection=Server=localhost,1433;Database=SethuwaPharmacy_QA;User Id=...;Password=...;TrustServerCertificate=True;MultipleActiveResultSets=True;
 #   Jwt__Key=<long random secret>
 
 [Unit]
-Description=Sethuwa Pharmacy API (QA)
+Description=Sethsuwa Pharmacy API (QA)
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/var/opt/sethuwa-phama-qa/api
+WorkingDirectory=/var/opt/sethsuwa-phama-qa/api
 Environment=ASPNETCORE_ENVIRONMENT=QA
-EnvironmentFile=/etc/sethuwa-phama-qa/api.env
-ExecStart=/usr/bin/dotnet /var/opt/sethuwa-phama-qa/api/pharmacyPOS.API.dll
+EnvironmentFile=/etc/sethsuwa-phama-qa/api.env
+ExecStart=/usr/bin/dotnet /var/opt/sethsuwa-phama-qa/api/pharmacyPOS.API.dll
 Restart=always
 RestartSec=10
 KillSignal=SIGINT
-SyslogIdentifier=sethuwa-phama-api-qa
+SyslogIdentifier=sethsuwa-phama-api-qa
 
 [Install]
 WantedBy=multi-user.target

@@ -10,10 +10,10 @@ using pharmacyPOS.API.Authorization;
 [ApiController]
 public class EmployeeController : ControllerBase
 {
-    private readonly SethuwaPharmacyDbContext _context;
+    private readonly SethsuwaPharmacyDbContext _context;
     private readonly ILogger<EmployeeController> _logger;
 
-    public EmployeeController(SethuwaPharmacyDbContext context, ILogger<EmployeeController> logger)
+    public EmployeeController(SethsuwaPharmacyDbContext context, ILogger<EmployeeController> logger)
     {
         _context = context;
         _logger = logger;

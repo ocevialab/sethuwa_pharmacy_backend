@@ -41,4 +41,4 @@ jobs:
             --exclude='Logs/' \
             ./publish/ "$REMOTE"
           ssh $SSH_OPTS "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            'sudo systemctl restart sethuwa-phama-api-qa'
+            'sudo systemctl restart sethsuwa-phama-api-qa'

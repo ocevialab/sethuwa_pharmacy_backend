@@ -9,10 +9,10 @@ using pharmacyPOS.API.Authorization;
 [ApiController]
 public class PermissionController : ControllerBase
 {
-    private readonly SethuwaPharmacyDbContext _context;
+    private readonly SethsuwaPharmacyDbContext _context;
     private readonly ILogger<PermissionController> _logger;
 
-    public PermissionController(SethuwaPharmacyDbContext context, ILogger<PermissionController> logger)
+    public PermissionController(SethsuwaPharmacyDbContext context, ILogger<PermissionController> logger)
     {
         _context = context;
         _logger = logger;

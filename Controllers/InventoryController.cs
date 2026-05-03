@@ -11,10 +11,10 @@ using pharmacyPOS.API.Authorization;
 [ApiController]
 public class InventoryController : ControllerBase
 {
-    private readonly SethuwaPharmacyDbContext _context;
+    private readonly SethsuwaPharmacyDbContext _context;
     private readonly ILogger<InventoryController> _logger;
 
-    public InventoryController(SethuwaPharmacyDbContext context, ILogger<InventoryController> logger)
+    public InventoryController(SethsuwaPharmacyDbContext context, ILogger<InventoryController> logger)
     {
         _context = context;
         _logger = logger;
