@@ -7,6 +7,7 @@ using System.Text;
 using pharmacyPOS.API.Models;
 using pharmacyPOS.API.Authorization;
 using pharmacyPOS.API.Data;
+using pharmacyPOS.API.Services;
 using Serilog;
 using Microsoft.OpenApi.Models;
 
@@ -73,6 +74,8 @@ builder.Services.AddSwaggerGen(c =>
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<SethsuwaPharmacyDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+builder.Services.AddScoped<MedicineExcelBulkUpdateService>();
 
 //loging
 Log.Logger = new LoggerConfiguration()

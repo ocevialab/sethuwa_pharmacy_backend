@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using pharmacyPOS.API.DTOs;
 using pharmacyPOS.API.Models;
+using pharmacyPOS.API.Services;
 using pharmacyPOS.API.Utilities;
 using pharmacyPOS.API.Authorization;
 
@@ -12,11 +13,16 @@ public class MedicineController : ControllerBase
 {
     private readonly SethsuwaPharmacyDbContext _context;
     private readonly ILogger<MedicineController> _logger;
+    private readonly MedicineExcelBulkUpdateService _excelBulkUpdate;
 
-    public MedicineController(SethsuwaPharmacyDbContext context, ILogger<MedicineController> logger)
+    public MedicineController(
+        SethsuwaPharmacyDbContext context,
+        ILogger<MedicineController> logger,
+        MedicineExcelBulkUpdateService excelBulkUpdate)
     {
         _context = context;
         _logger = logger;
+        _excelBulkUpdate = excelBulkUpdate;
     }
 
     // POST: api/Medicine
@@ -166,6 +172,38 @@ public class MedicineController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Bulk-update or create medicines from an Excel workbook (.xlsx). Existing IDs are updated; unknown IDs create a new medicine and product when Medicine Name is provided.
+    /// </summary>
+    [RequirePermission("medicine:update")]
+    [HttpPost("bulk-update-from-excel")]
+    [RequestSizeLimit(15 * 1024 * 1024)]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<MedicineExcelBulkUpdateSummaryDto>> BulkUpdateFromExcel(
+        IFormFile? file,
+        CancellationToken cancellationToken)
+    {
+        if (file == null || file.Length == 0)
+        {
+            _logger.LogWarning("Bulk medicine Excel import rejected: no file.");
+            return BadRequest("Please choose an Excel file (.xlsx) to upload.");
+        }
+
+        if (!string.Equals(Path.GetExtension(file.FileName), ".xlsx", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("Bulk medicine Excel import rejected: invalid extension {FileName}", file.FileName);
+            return BadRequest("Only .xlsx files are supported.");
+        }
+
+        await using var stream = file.OpenReadStream();
+        var summary = await _excelBulkUpdate.ImportAsync(stream, cancellationToken);
+        _logger.LogInformation(
+            "Medicine Excel bulk import finished: success={Success}, errors={Errors}, skipped={Skipped}",
+            summary.SuccessCount, summary.ErrorCount, summary.SkippedCount);
+
+        return Ok(summary);
     }
 
     // SOFT DELETE: api/Medicine/{id}
