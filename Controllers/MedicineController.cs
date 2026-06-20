@@ -242,6 +242,7 @@ public class MedicineController : ControllerBase
 
     /// <summary>Download an A4 PDF sheet of barcode labels for the medicine.</summary>
     [RequirePermission("medicine:view")]
+    [HttpGet("{id}/barcode/labels")]
     [HttpGet("{id}/barcode/labels.pdf")]
     public async Task<IActionResult> DownloadBarcodeLabels(string id)
     {
