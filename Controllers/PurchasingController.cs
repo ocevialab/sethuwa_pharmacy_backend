@@ -730,10 +730,17 @@ public class PurchasingController : ControllerBase
 
         var stockLookup = stockData.ToDictionary(s => s.ProductSku);
 
+        var barcodeLookup = await _context.Products
+            .Where(p => productSkus.Contains(p.ProductSku))
+            .Select(p => new { p.ProductSku, p.Barcode })
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.ProductSku, x => x.Barcode);
+
         // STEP 5 — Map to DTOs
         var result = allProducts.Select(p =>
         {
             stockLookup.TryGetValue(p.ProductSku, out var stock);
+            barcodeLookup.TryGetValue(p.ProductSku, out var barcode);
 
             return new ProductSearchResultDto
             {
@@ -742,7 +749,8 @@ public class PurchasingController : ControllerBase
                 Strength = p.Strength ?? "",
                 ProductType = p.ProductType,
                 SellingPrice = stock?.SellingPrice ?? 0,
-                TotalQuantityOnHand = stock?.TotalQuantity ?? 0
+                TotalQuantityOnHand = stock?.TotalQuantity ?? 0,
+                Barcode = barcode
             };
         }).ToList();
 

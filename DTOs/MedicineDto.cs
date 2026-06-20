@@ -13,4 +13,5 @@ public class MedicineDto
     public bool IsDeleted { get; set; }
 
     public string? ProductSku { get; set; }
+    public string? Barcode { get; set; }
 }

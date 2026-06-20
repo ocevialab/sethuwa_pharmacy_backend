@@ -14,15 +14,21 @@ public class MedicineController : ControllerBase
     private readonly SethsuwaPharmacyDbContext _context;
     private readonly ILogger<MedicineController> _logger;
     private readonly MedicineExcelBulkUpdateService _excelBulkUpdate;
+    private readonly BarcodeService _barcodeService;
+    private readonly BarcodeLabelPdfService _barcodeLabelPdf;
 
     public MedicineController(
         SethsuwaPharmacyDbContext context,
         ILogger<MedicineController> logger,
-        MedicineExcelBulkUpdateService excelBulkUpdate)
+        MedicineExcelBulkUpdateService excelBulkUpdate,
+        BarcodeService barcodeService,
+        BarcodeLabelPdfService barcodeLabelPdf)
     {
         _context = context;
         _logger = logger;
         _excelBulkUpdate = excelBulkUpdate;
+        _barcodeService = barcodeService;
+        _barcodeLabelPdf = barcodeLabelPdf;
     }
 
     // POST: api/Medicine
@@ -82,6 +88,13 @@ public class MedicineController : ControllerBase
                 IsDeleted = false
             };
 
+            if (!string.IsNullOrWhiteSpace(dto.Barcode))
+            {
+                var trimmed = dto.Barcode.Trim();
+                await _barcodeService.EnsureBarcodeAvailableAsync(trimmed, product.ProductSku);
+                product.Barcode = trimmed;
+            }
+
             _context.Products.Add(product);
             _logger.LogInformation("Product abstraction created for MedicineId: {MedicineId}", newMedicineId);
 
@@ -103,6 +116,7 @@ public class MedicineController : ControllerBase
                 RequiredPrescription = medicine.RequiredPrescription ?? false,
                 LowStockThreshold = medicine.LowStockThreshold ?? 0,
                 ProductSku = product.ProductSku,
+                Barcode = product.Barcode,
                 IsDeleted = medicine.IsDeleted
             };
             _logger.LogInformation("Medicine creation response prepared: {@MedicineDto}", response);
@@ -118,14 +132,17 @@ public class MedicineController : ControllerBase
 
     // GET: api/Medicine/{id}
     [HttpGet("{id}")]
-    public async Task<ActionResult<Medicine>> GetMedicine(string id)
+    public async Task<ActionResult<MedicineDto>> GetMedicine(string id)
     {
-        var medicine = await _context.Medicines.FindAsync(id);
+        var medicine = await _context.Medicines
+            .Include(m => m.Products)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.MedicineId == id);
 
         if (medicine == null)
             return NotFound();
 
-        return medicine;
+        return MapToDto(medicine);
     }
 
     // PUT: api/Medicine/{id}
@@ -157,6 +174,21 @@ public class MedicineController : ControllerBase
         existingMedicine.LowStockThreshold = dto.LowStockThreshold;
         existingMedicine.IsDeleted = dto.IsDeleted;
 
+        var product = await _context.Products
+            .FirstOrDefaultAsync(p => p.MedicineId == id && p.ProductType == "Medicine" && !p.IsDeleted);
+
+        if (product != null && dto.Barcode != null)
+        {
+            var trimmed = dto.Barcode.Trim();
+            if (string.IsNullOrEmpty(trimmed))
+                product.Barcode = null;
+            else
+            {
+                await _barcodeService.EnsureBarcodeAvailableAsync(trimmed, product.ProductSku);
+                product.Barcode = trimmed;
+            }
+        }
+
         _context.Entry(existingMedicine).State = EntityState.Modified;
 
         try
@@ -172,6 +204,67 @@ public class MedicineController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    /// <summary>Generate a unique EAN-13 barcode for the medicine product (when none exists).</summary>
+    [RequirePermission("medicine:update")]
+    [HttpPost("{id}/barcode/generate")]
+    public async Task<ActionResult<MedicineBarcodeDto>> GenerateBarcode(string id)
+    {
+        var medicine = await _context.Medicines.FindAsync(id);
+        if (medicine == null || medicine.IsDeleted)
+            return NotFound($"Medicine with ID {id} not found.");
+
+        Product product;
+        try
+        {
+            product = await _barcodeService.GetMedicineProductAsync(id);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        if (!string.IsNullOrWhiteSpace(product.Barcode))
+            return Conflict("This product already has a barcode. Download labels or edit the barcode manually.");
+
+        product.Barcode = await _barcodeService.GenerateUniqueEan13Async();
+        await _context.SaveChangesAsync();
+
+        return Ok(new MedicineBarcodeDto
+        {
+            MedicineId = id,
+            ProductSku = product.ProductSku,
+            Barcode = product.Barcode,
+            MedicineName = medicine.Name
+        });
+    }
+
+    /// <summary>Download an A4 PDF sheet of barcode labels for the medicine.</summary>
+    [RequirePermission("medicine:view")]
+    [HttpGet("{id}/barcode/labels.pdf")]
+    public async Task<IActionResult> DownloadBarcodeLabels(string id)
+    {
+        var medicine = await _context.Medicines.FindAsync(id);
+        if (medicine == null || medicine.IsDeleted)
+            return NotFound($"Medicine with ID {id} not found.");
+
+        Product product;
+        try
+        {
+            product = await _barcodeService.GetMedicineProductAsync(id);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        if (string.IsNullOrWhiteSpace(product.Barcode))
+            return BadRequest("No barcode on file. Generate a barcode first.");
+
+        var pdf = _barcodeLabelPdf.BuildA4LabelSheet(product.Barcode, medicine.Name);
+        var fileName = $"{SanitizeFileName(medicine.Name)}-barcode-labels.pdf";
+        return File(pdf, "application/pdf", fileName);
     }
 
     /// <summary>
@@ -427,6 +520,8 @@ public class MedicineController : ControllerBase
             RequiredPrescription = m.RequiredPrescription ?? false,
             LowStockThreshold = m.LowStockThreshold ?? 0,
             ProductSku = m.Products.FirstOrDefault()?.ProductSku,
+            Barcode = m.Products.FirstOrDefault(p => p.ProductType == "Medicine" && !p.IsDeleted)?.Barcode
+                      ?? m.Products.FirstOrDefault()?.Barcode,
             IsDeleted = m.IsDeleted
         }).ToList();
 
@@ -469,7 +564,9 @@ public class MedicineController : ControllerBase
             RequiredPrescription = m.RequiredPrescription ?? false,
             LowStockThreshold = m.LowStockThreshold ?? 0,
             IsDeleted = m.IsDeleted,
-            ProductSku = m.Products.FirstOrDefault()?.ProductSku
+            ProductSku = m.Products.FirstOrDefault()?.ProductSku,
+            Barcode = m.Products.FirstOrDefault(p => p.ProductType == "Medicine" && !p.IsDeleted)?.Barcode
+                      ?? m.Products.FirstOrDefault()?.Barcode
         }).ToList();
 
         return Ok(medicineDtos);
@@ -566,6 +663,35 @@ public class MedicineController : ControllerBase
     public IActionResult Test()
     {
         return Ok("Test API is working");
+    }
+
+    private static MedicineDto MapToDto(Medicine m)
+    {
+        var product = m.Products.FirstOrDefault(p => p.ProductType == "Medicine" && !p.IsDeleted)
+                      ?? m.Products.FirstOrDefault();
+
+        return new MedicineDto
+        {
+            MedicineId = m.MedicineId,
+            Name = m.Name,
+            BrandName = m.BrandName,
+            GenericName = m.GenericName,
+            Manufacture = m.Manufacture,
+            Category = m.Category,
+            Strength = m.Strength,
+            RequiredPrescription = m.RequiredPrescription ?? false,
+            LowStockThreshold = m.LowStockThreshold ?? 0,
+            ProductSku = product?.ProductSku,
+            Barcode = product?.Barcode,
+            IsDeleted = m.IsDeleted
+        };
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? "medicine" : cleaned;
     }
 
 }

@@ -198,7 +198,8 @@ public class InventoryController : ControllerBase
             .Where(p => !p.IsDeleted &&
                    (q == null ||
                     (p.ProductType == "Medicine" && p.Medicine!.Name.ToLower().Contains(q)) ||
-                    (p.ProductType == "Glossary" && p.Glossary!.Name.ToLower().Contains(q))
+                    (p.ProductType == "Glossary" && p.Glossary!.Name.ToLower().Contains(q)) ||
+                    (p.Barcode != null && p.Barcode.ToLower().Contains(q))
                    ))
             .ToListAsync();
 
@@ -257,7 +258,8 @@ public class InventoryController : ControllerBase
                 UnitPrice = price,
                 LowStockThreshold = lowThreshold,
                 ProductType = p.ProductType,
-                SupplierSummary = string.IsNullOrWhiteSpace(supplierSummary) ? null : supplierSummary
+                SupplierSummary = string.IsNullOrWhiteSpace(supplierSummary) ? null : supplierSummary,
+                Barcode = p.Barcode
             });
         }
 
@@ -284,7 +286,8 @@ public class InventoryController : ControllerBase
                    (q == null ||
                     (p.ProductType == "Medicine" && p.Medicine != null && p.Medicine.Name.ToLower().Contains(q)) ||
                     (p.ProductType == "Glossary" && p.Glossary != null && p.Glossary.Name.ToLower().Contains(q)) ||
-                    p.ProductSku.ToLower().Contains(q)
+                    p.ProductSku.ToLower().Contains(q) ||
+                    (p.Barcode != null && p.Barcode.ToLower().Contains(q))
                    ))
             .AsNoTracking()
             .OrderBy(p => p.ProductSku)
@@ -370,7 +373,8 @@ public class InventoryController : ControllerBase
                 UnitPrice = price,
                 LowStockThreshold = lowThreshold,
                 ProductType = p.ProductType,
-                SupplierSummary = string.IsNullOrWhiteSpace(supplierSummary) ? null : supplierSummary
+                SupplierSummary = string.IsNullOrWhiteSpace(supplierSummary) ? null : supplierSummary,
+                Barcode = p.Barcode
             };
         }).ToList();
 

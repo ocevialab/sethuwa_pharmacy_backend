@@ -488,8 +488,18 @@ namespace pharmacyPOS.API.Migrations
                         .HasColumnType("varchar(20)")
                         .HasColumnName("Product_Type");
 
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("Barcode");
+
                     b.HasKey("ProductSku")
                         .HasName("PK__Products__5C44DD333C7A5A01");
+
+                    b.HasIndex("Barcode")
+                        .IsUnique()
+                        .HasFilter("[Barcode] IS NOT NULL");
 
                     b.HasIndex("GlossaryId");
 

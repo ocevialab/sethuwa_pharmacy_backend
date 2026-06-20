@@ -15,6 +15,8 @@ public partial class Product
 
     public bool IsDeleted { get; set; }
 
+    public string? Barcode { get; set; }
+
     public virtual ICollection<CustomerRecurrentItem> CustomerRecurrentItems { get; set; } = new List<CustomerRecurrentItem>();
 
     public virtual Glossary? Glossary { get; set; }

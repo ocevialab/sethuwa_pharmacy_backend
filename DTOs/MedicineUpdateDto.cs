@@ -13,5 +13,6 @@ namespace pharmacyPOS.API.DTOs
         public required bool RequiredPrescription { get; set; }
         public required int LowStockThreshold { get; set; }
         public required bool IsDeleted { get; set; }
+        public string? Barcode { get; set; }
     }
 }

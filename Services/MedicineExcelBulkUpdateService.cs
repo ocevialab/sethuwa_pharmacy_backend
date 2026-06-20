@@ -145,6 +145,7 @@ public class MedicineExcelBulkUpdateService
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<SethsuwaPharmacyDbContext>();
+        var barcodeService = scope.ServiceProvider.GetRequiredService<BarcodeService>();
 
         try
         {
@@ -359,8 +360,30 @@ public class MedicineExcelBulkUpdateService
             }
 
             var warnings = new List<string>();
-            if (colMap.ContainsKey("barcode"))
-                warnings.Add("Barcode column is ignored (not stored in the database).");
+
+            if (colMap.TryGetValue("barcode", out var barcodeCol))
+            {
+                var rawBarcode = ws.Row(rowNumber).Cell(barcodeCol).GetString().Trim();
+                if (!string.IsNullOrEmpty(rawBarcode))
+                {
+                    try
+                    {
+                        await barcodeService.EnsureBarcodeAvailableAsync(
+                            rawBarcode, product!.ProductSku, cancellationToken);
+                        product.Barcode = rawBarcode;
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        return new MedicineExcelBulkUpdateRowResultDto
+                        {
+                            RowNumber = rowNumber,
+                            MedicineId = medicineId,
+                            Status = "Error",
+                            Message = ex.Message
+                        };
+                    }
+                }
+            }
 
             var wantSelling = colMap.TryGetValue("sellingprice", out var spCol);
             var wantCost = colMap.TryGetValue("costprice", out var cpCol);

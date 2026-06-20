@@ -227,6 +227,13 @@ public partial class SethsuwaPharmacyDbContext : DbContext
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasColumnName("Product_Type");
+            entity.Property(e => e.Barcode)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("Barcode");
+            entity.HasIndex(e => e.Barcode)
+                .IsUnique()
+                .HasFilter("[Barcode] IS NOT NULL");
 
             entity.HasOne(d => d.Glossary).WithMany(p => p.Products)
                 .HasForeignKey(d => d.GlossaryId)

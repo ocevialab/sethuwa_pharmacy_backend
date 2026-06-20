@@ -9,4 +9,5 @@ public class ProductListItemDto
 
     /// <summary>Distinct supplier names from stock rows with quantity on hand (comma-separated).</summary>
     public string? SupplierSummary { get; set; }
+    public string? Barcode { get; set; }
 }

@@ -7,4 +7,5 @@ public class ProductSearchResultDto
 
     public decimal SellingPrice { get; set; }
     public int TotalQuantityOnHand { get; set; }
+    public string? Barcode { get; set; }
 }

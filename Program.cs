@@ -76,6 +76,8 @@ builder.Services.AddDbContext<SethsuwaPharmacyDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 builder.Services.AddScoped<MedicineExcelBulkUpdateService>();
+builder.Services.AddScoped<BarcodeService>();
+builder.Services.AddScoped<BarcodeLabelPdfService>();
 
 //loging
 Log.Logger = new LoggerConfiguration()
