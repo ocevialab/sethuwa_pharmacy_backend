@@ -263,9 +263,17 @@ public class MedicineController : ControllerBase
         if (string.IsNullOrWhiteSpace(product.Barcode))
             return BadRequest("No barcode on file. Generate a barcode first.");
 
-        var pdf = _barcodeLabelPdf.BuildA4LabelSheet(product.Barcode, medicine.Name);
-        var fileName = $"{SanitizeFileName(medicine.Name)}-barcode-labels.pdf";
-        return File(pdf, "application/pdf", fileName);
+        try
+        {
+            var pdf = _barcodeLabelPdf.BuildA4LabelSheet(product.Barcode, medicine.Name);
+            var fileName = $"{SanitizeFileName(medicine.Name)}-barcode-labels.pdf";
+            return File(pdf, "application/pdf", fileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to generate barcode label PDF for medicine {MedicineId}", id);
+            return StatusCode(500, "Could not generate barcode label PDF. Please contact support.");
+        }
     }
 
     /// <summary>

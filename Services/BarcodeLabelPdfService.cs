@@ -21,11 +21,12 @@ public class BarcodeLabelPdfService
 
     static BarcodeLabelPdfService()
     {
-        QuestPDF.Settings.License = LicenseType.Community;
+        QuestPdfBootstrap.EnsureInitialized();
     }
 
     public byte[] BuildA4LabelSheet(string barcode, string productName)
     {
+        QuestPdfBootstrap.EnsureInitialized();
         var png = RenderBarcodePng(barcode, (int)(LabelWidthMm * 8), (int)(BarcodeHeightMm * 8));
         var displayName = TruncateName(productName, 48);
 

@@ -79,6 +79,8 @@ builder.Services.AddScoped<MedicineExcelBulkUpdateService>();
 builder.Services.AddScoped<BarcodeService>();
 builder.Services.AddScoped<BarcodeLabelPdfService>();
 
+QuestPdfBootstrap.EnsureInitialized();
+
 //loging
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
