@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using pharmacyPOS.API.DTOs;
 using pharmacyPOS.API.Models;
+using pharmacyPOS.API.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,11 +14,19 @@ public class InventoryController : ControllerBase
 {
     private readonly SethsuwaPharmacyDbContext _context;
     private readonly ILogger<InventoryController> _logger;
+    private readonly BarcodeService _barcodeService;
+    private readonly BarcodeLabelPdfService _barcodeLabelPdf;
 
-    public InventoryController(SethsuwaPharmacyDbContext context, ILogger<InventoryController> logger)
+    public InventoryController(
+        SethsuwaPharmacyDbContext context,
+        ILogger<InventoryController> logger,
+        BarcodeService barcodeService,
+        BarcodeLabelPdfService barcodeLabelPdf)
     {
         _context = context;
         _logger = logger;
+        _barcodeService = barcodeService;
+        _barcodeLabelPdf = barcodeLabelPdf;
     }
 
     // GET: api/Inventory/ItemDetails/MED-10001
@@ -387,6 +396,115 @@ public class InventoryController : ControllerBase
             totalPages,
             data = result
         });
+    }
+
+    /// <summary>Set or clear the barcode on any product (medicine or glossary).</summary>
+    [RequirePermission("medicine:update")]
+    [HttpPut("{productSku}/barcode")]
+    public async Task<ActionResult<ProductBarcodeDto>> UpdateProductBarcode(
+        string productSku,
+        UpdateProductBarcodeDto dto)
+    {
+        var product = await _context.Products
+            .Include(p => p.Medicine)
+            .Include(p => p.Glossary)
+            .FirstOrDefaultAsync(p => p.ProductSku == productSku && !p.IsDeleted);
+
+        if (product == null)
+            return NotFound($"Product with SKU {productSku} not found.");
+
+        if (string.IsNullOrWhiteSpace(dto.Barcode))
+        {
+            product.Barcode = null;
+        }
+        else
+        {
+            var trimmed = dto.Barcode.Trim();
+            await _barcodeService.EnsureBarcodeAvailableAsync(trimmed, product.ProductSku);
+            product.Barcode = trimmed;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new ProductBarcodeDto
+        {
+            ProductSku = product.ProductSku,
+            Barcode = product.Barcode,
+            ProductName = GetProductDisplayName(product),
+            ProductType = product.ProductType
+        });
+    }
+
+    /// <summary>Generate a unique EAN-13 barcode when the product has none.</summary>
+    [RequirePermission("medicine:update")]
+    [HttpPost("{productSku}/barcode/generate")]
+    public async Task<ActionResult<ProductBarcodeDto>> GenerateProductBarcode(string productSku)
+    {
+        var product = await _context.Products
+            .Include(p => p.Medicine)
+            .Include(p => p.Glossary)
+            .FirstOrDefaultAsync(p => p.ProductSku == productSku && !p.IsDeleted);
+
+        if (product == null)
+            return NotFound($"Product with SKU {productSku} not found.");
+
+        if (!string.IsNullOrWhiteSpace(product.Barcode))
+            return Conflict("This product already has a barcode.");
+
+        product.Barcode = await _barcodeService.GenerateUniqueEan13Async();
+        await _context.SaveChangesAsync();
+
+        return Ok(new ProductBarcodeDto
+        {
+            ProductSku = product.ProductSku,
+            Barcode = product.Barcode,
+            ProductName = GetProductDisplayName(product),
+            ProductType = product.ProductType
+        });
+    }
+
+    /// <summary>Download an A4 PDF sheet of barcode labels for the product.</summary>
+    [RequirePermission("medicine:view")]
+    [HttpGet("{productSku}/barcode/labels")]
+    public async Task<IActionResult> DownloadProductBarcodeLabels(string productSku)
+    {
+        var product = await _context.Products
+            .Include(p => p.Medicine)
+            .Include(p => p.Glossary)
+            .FirstOrDefaultAsync(p => p.ProductSku == productSku && !p.IsDeleted);
+
+        if (product == null)
+            return NotFound($"Product with SKU {productSku} not found.");
+
+        if (string.IsNullOrWhiteSpace(product.Barcode))
+            return BadRequest("No barcode on file. Generate or enter a barcode first.");
+
+        try
+        {
+            var name = GetProductDisplayName(product);
+            var pdf = _barcodeLabelPdf.BuildA4LabelSheet(product.Barcode, name);
+            var fileName = $"{SanitizeFileName(name)}-barcode-labels.pdf";
+            return File(pdf, "application/pdf", fileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to generate barcode label PDF for product {ProductSku}", productSku);
+            return StatusCode(500, "Could not generate barcode label PDF.");
+        }
+    }
+
+    private static string GetProductDisplayName(Product product) =>
+        product.ProductType switch
+        {
+            "Medicine" => product.Medicine?.Name ?? product.ProductSku,
+            "Glossary" => product.Glossary?.Name ?? product.ProductSku,
+            _ => product.ProductSku
+        };
+
+    private static string SanitizeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        return string.Concat(name.Select(c => invalid.Contains(c) ? '_' : c)).Trim();
     }
 
 }
