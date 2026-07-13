@@ -726,6 +726,14 @@ public class SalesController : ControllerBase
         decimal totalToday = todaySales.Sum(s => s.Payments.Sum(p => p.PaymentAmount));
         int receiptCount = todaySales.Count;
 
+        var todaysPayments = todaySales.SelectMany(s => s.Payments).ToList();
+        decimal cashTotal = todaysPayments
+            .Where(p => p.PaymentMethod == "Cash")
+            .Sum(p => p.PaymentAmount);
+        decimal cardTotal = todaysPayments
+            .Where(p => p.PaymentMethod == "Card")
+            .Sum(p => p.PaymentAmount);
+
         // -----------------------------
         // 2️⃣ Yesterday's Paid Sales
         // -----------------------------
@@ -750,6 +758,8 @@ public class SalesController : ControllerBase
         {
             TotalSalesToday = totalToday,
             TotalReceiptsToday = receiptCount,
+            CashTotal = cashTotal,
+            CardTotal = cardTotal,
             PercentageChange = Math.Round(percentageChange, 2)
         };
 
