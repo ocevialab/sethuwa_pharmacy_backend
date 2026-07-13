@@ -261,6 +261,18 @@ public class SalesController : ControllerBase
             sale.BilledById = cashierId;
 
             // --------------------------
+            // PAYMENT METHOD PRESENCE CHECK
+            // Either a top-level PaymentMethod (single-payment/PayLater mode) or a
+            // non-empty Payments list (multi-payment mode) must be supplied.
+            // --------------------------
+            if (string.IsNullOrWhiteSpace(dto.PaymentMethod) && (dto.Payments == null || dto.Payments.Count == 0))
+            {
+                _logger.LogWarning("No payment method or payments provided for receipt: {ReceiptNumber}", receiptNumber);
+                await transaction.RollbackAsync();
+                return BadRequest("Either a payment method or a list of payments is required.");
+            }
+
+            // --------------------------
             // CUSTOMER VALIDATION RULE
             // --------------------------
             if (dto.PaymentMethod == "PayLater")
@@ -315,7 +327,7 @@ public class SalesController : ControllerBase
                     // Backward compatibility: single payment
                     paymentsToProcess.Add(new CreatePaymentDto
                     {
-                        PaymentMethod = dto.PaymentMethod,
+                        PaymentMethod = dto.PaymentMethod!,
                         PaymentAmount = dto.ReceivedAmount,
                         PaymentDate = now
                     });

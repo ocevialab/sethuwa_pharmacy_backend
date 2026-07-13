@@ -17,8 +17,9 @@ public class FinalizeSaleDto
     public decimal RoundingDiscount { get; set; } = 0;
 
     // Payment - Backward compatible: can use single payment or multiple payments
-    [Required]
-    public string PaymentMethod { get; set; } = null!;  // Cash, Card, Bank, PayLater
+    // Required only when Payments is not provided (single-payment mode); enforced in the controller
+    // instead of via [Required], since the multi-payment mode omits this field entirely.
+    public string? PaymentMethod { get; set; }  // Cash, Card, Bank, PayLater
 
     public decimal ReceivedAmount { get; set; } = 0; // only for paid (single payment mode)
 
