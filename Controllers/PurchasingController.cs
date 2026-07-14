@@ -773,6 +773,31 @@ public class PurchasingController : ControllerBase
             return NotFound($"Purchase with ID {purchaseId} not found.");
         }
 
+        // Resolve product names via Medicine/Glossary lookup (same approach as GetAllPurchases)
+        var productSkus = purchase.PurchaseItems.Select(pi => pi.ProductSku).Distinct().ToList();
+
+        var products = await _context.Products
+            .Where(p => productSkus.Contains(p.ProductSku))
+            .AsNoTracking()
+            .ToListAsync();
+
+        var medicineIds = products.Where(p => p.MedicineId != null).Select(p => p.MedicineId!).Distinct().ToList();
+        var glossaryIds = products.Where(p => p.GlossaryId != null).Select(p => p.GlossaryId!).Distinct().ToList();
+
+        var medicines = await _context.Medicines
+            .Where(m => medicineIds.Contains(m.MedicineId))
+            .AsNoTracking()
+            .ToListAsync();
+
+        var glossaries = await _context.Glossaries
+            .Where(g => glossaryIds.Contains(g.GlossaryId))
+            .AsNoTracking()
+            .ToListAsync();
+
+        var productLookup = products.ToDictionary(p => p.ProductSku);
+        var medicineLookup = medicines.ToDictionary(m => m.MedicineId);
+        var glossaryLookup = glossaries.ToDictionary(g => g.GlossaryId);
+
         var purchaseDTO = new PurchaseDTO
         {
             PurchaseId = purchase.PurchaseId,
@@ -782,13 +807,37 @@ public class PurchasingController : ControllerBase
             PaymentDueDate = purchase.PaymentDueDate,
             TotalAmount = purchase.TotalAmount,
             SupplierId = purchase.SupplierId,
-            PurchaseItems = purchase.PurchaseItems.Select(pi => new PurchaseItemDto
+            PurchaseItems = purchase.PurchaseItems.Select(pi =>
             {
-                ProductSKU = pi.ProductSku,
-                Quantity = pi.Quantity,
-                CostPrice = pi.CostPrice,
-                SellingPrice = pi.SellingPrice,
-                ExpireDate = pi.ExpireDate.ToDateTime(new TimeOnly(0, 0))
+                string productName = "Unknown";
+
+                if (productLookup.TryGetValue(pi.ProductSku, out var product))
+                {
+                    if (product.ProductType == "Medicine" && product.MedicineId != null)
+                    {
+                        if (medicineLookup.TryGetValue(product.MedicineId, out var medicine))
+                        {
+                            productName = medicine.Name;
+                        }
+                    }
+                    else if (product.ProductType == "Glossary" && product.GlossaryId != null)
+                    {
+                        if (glossaryLookup.TryGetValue(product.GlossaryId, out var glossary))
+                        {
+                            productName = glossary.Name;
+                        }
+                    }
+                }
+
+                return new PurchaseItemDto
+                {
+                    ProductSKU = pi.ProductSku,
+                    ProductName = productName,
+                    Quantity = pi.Quantity,
+                    CostPrice = pi.CostPrice,
+                    SellingPrice = pi.SellingPrice,
+                    ExpireDate = pi.ExpireDate.ToDateTime(new TimeOnly(0, 0))
+                };
             }).ToList()
         };
 
