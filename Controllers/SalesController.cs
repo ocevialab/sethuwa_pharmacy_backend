@@ -648,6 +648,122 @@ public class SalesController : ControllerBase
         return Ok(Summary);
     }
 
+    /*  EDIT DRAFT RECEIPT (Admin/Owner only) — replaces all items and reconciles stock  */
+
+    [RequirePermission("sales:edit_draft")]
+    [HttpPut("draft/{receiptNumber}")]
+    public async Task<IActionResult> UpdateDraftReceipt(string receiptNumber, CreateReceiptWithItemsDto dto)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var sale = await _context.Sales
+            .Include(s => s.SalesItems)
+            .FirstOrDefaultAsync(s => s.ReceiptNumber == receiptNumber);
+
+        if (sale == null)
+            return NotFound("Receipt not found.");
+
+        if (sale.SaleStatus != "Draft")
+            return BadRequest("Only draft receipts can be edited.");
+
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            // 1️⃣ Restore stock for the draft's current items (mirrors CancelDraftReceipt's restore logic)
+            var movements = await _context.StockMovements
+                .Where(m => m.SalesId == sale.SalesId && m.Reason == "Sale")
+                .ToListAsync();
+
+            foreach (var m in movements)
+            {
+                var batch = await _context.Stocks.FirstOrDefaultAsync(s => s.StockId == m.Stock_Id);
+                if (batch != null)
+                {
+                    batch.QuantityOnHand += (-m.QuantityChanged);
+                }
+
+                _context.StockMovements.Add(new StockMovement
+                {
+                    ProductSku = m.ProductSku,
+                    Stock_Id = m.Stock_Id,
+                    QuantityChanged = -m.QuantityChanged, // reverse
+                    Reason = "SaleEdit",
+                    SalesId = sale.SalesId,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            // 2️⃣ Remove the old sale items
+            _context.SalesItems.RemoveRange(sale.SalesItems);
+            await _context.SaveChangesAsync();
+
+            // 3️⃣ Re-deduct stock and create new sale items from the updated list (same logic as create)
+            foreach (var item in dto.Items)
+            {
+                var product = await _context.Products
+                    .FirstOrDefaultAsync(p => p.ProductSku == item.ProductSku && !p.IsDeleted);
+
+                if (product == null)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest($"Invalid product SKU: {item.ProductSku}");
+                }
+
+                long? selectedStockId = null;
+
+                if (item.StockId.HasValue)
+                {
+                    bool ok = await StockDeduction.DeductFromBatch(_context, item.StockId.Value, item.ProductSku, item.Quantity, sale.SalesId);
+                    if (!ok)
+                    {
+                        await transaction.RollbackAsync();
+                        return BadRequest($"Insufficient stock in selected batch for product: {item.ProductSku}");
+                    }
+                    selectedStockId = item.StockId.Value;
+                }
+                else
+                {
+                    bool ok = await StockDeduction.DeductUsingFEFO(_context, item.ProductSku, item.Quantity, sale.SalesId);
+                    if (!ok)
+                    {
+                        await transaction.RollbackAsync();
+                        return BadRequest($"Insufficient stock for product: {item.ProductSku}");
+                    }
+                }
+
+                _context.SalesItems.Add(new SalesItem
+                {
+                    SalesId = sale.SalesId,
+                    ProductSku = item.ProductSku,
+                    Quantity = item.Quantity,
+                    SellingPrice = item.SubTotal / item.Quantity,
+                    SubTotal = item.SubTotal,
+                    StockId = selectedStockId
+                });
+            }
+
+            // 4️⃣ Update sale header total
+            sale.TotalAmount = dto.TotalAmount;
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(new
+            {
+                Message = "Draft receipt updated successfully",
+                SalesId = sale.SalesId,
+                ReceiptNumber = sale.ReceiptNumber
+            });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, ex.Message);
+        }
+    }
+
     /*  CANCEL DRAFT RECEIPT AND RESTORE STOCK  */
 
     [RequirePermission("sales:cancel_receipt")]

@@ -130,10 +130,65 @@ public static class DeploymentSeeder
 
         await db.SaveChangesAsync(cancellationToken);
 
+        // "sales:view_receipt" is a prerequisite for the edit-draft UI (it loads the draft before editing it),
+        // so Admins need both to actually use the feature.
+        await GrantPermissionToAdminsAsync(db, "sales:edit_draft", now, cancellationToken);
+        await GrantPermissionToAdminsAsync(db, "sales:view_receipt", now, cancellationToken);
+
         logger.LogInformation(
             "Deployment seed completed: {PermissionCount} permissions, OWNER {EmployeeId} linked to all active permissions.",
             activePermissionIds.Count,
             OwnerEmployeeId);
+    }
+
+    /// <summary>
+    /// Auto-grants a specific permission to every employee whose Role is "ADMIN" (case-insensitive).
+    /// OWNER already receives every active permission via the loop above; this covers the Admin role
+    /// for permissions that should be restricted to Admin/Owner only (e.g. editing draft receipts).
+    /// </summary>
+    private static async Task GrantPermissionToAdminsAsync(
+        SethsuwaPharmacyDbContext db,
+        string permissionId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var permissionExists = await db.Permissions
+            .AnyAsync(p => p.PermissionId == permissionId && p.IsActive, cancellationToken);
+        if (!permissionExists)
+            return;
+
+        var adminEmployeeIds = await db.Employees
+            .Where(e => e.Role.ToUpper() == "ADMIN")
+            .Select(e => e.EmployeeId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var adminId in adminEmployeeIds)
+        {
+            var existingGrant = await db.EmployeePermissions
+                .FirstOrDefaultAsync(
+                    ep => ep.EmployeeId == adminId && ep.PermissionId == permissionId,
+                    cancellationToken);
+
+            if (existingGrant == null)
+            {
+                db.EmployeePermissions.Add(new EmployeePermission
+                {
+                    EmployeeId = adminId,
+                    PermissionId = permissionId,
+                    GrantedAt = now,
+                    GrantedBy = OwnerEmployeeId,
+                    IsActive = true,
+                });
+            }
+            else if (!existingGrant.IsActive)
+            {
+                existingGrant.IsActive = true;
+                existingGrant.GrantedAt = now;
+                existingGrant.GrantedBy = OwnerEmployeeId;
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private static string? Truncate(string? value, int maxLen)

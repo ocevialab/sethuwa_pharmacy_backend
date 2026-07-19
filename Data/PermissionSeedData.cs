@@ -70,6 +70,7 @@ public static class PermissionSeedData
         new("sales:cancel_receipt", "Cancel Receipt", "Sales", "Allows canceling a sales receipt", "/api/Sales/cancel/{receiptNumber}", "PUT"),
         new("sales:complete_paylater", "Complete Pay Later", "Sales", "Allows completing payment for pay-later sales", "/api/Sales/paylater/complete/{receiptNumber}", "PUT"),
         new("sales:create_receipt", "Create Receipt", "Sales", "Allows creating a new sales receipt", "/api/Sales/create-receipt-with-items", "POST"),
+        new("sales:edit_draft", "Edit Draft Receipt", "Sales", "Allows editing items on a draft sales receipt (Admin/Owner only)", "/api/Sales/draft/{receiptNumber}", "PUT"),
         new("sales:finalize_sale", "Finalize Sale", "Sales", "Allows finalizing a draft sale", "/api/Sales/finalize/{receiptNumber}", "PUT"),
         new("sales:view_list", "View Sales List", "Sales", "Allows viewing list of all sales", "/api/Sales", "GET"),
         new("sales:view_paylater_list", "View Pay Later List", "Sales", "Allows viewing list of pay-later sales", "/api/Sales/paylater/list", "GET"),
