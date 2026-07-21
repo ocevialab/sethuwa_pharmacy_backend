@@ -475,6 +475,8 @@ public partial class SethsuwaPharmacyDbContext : DbContext
                 .IsUnicode(false)
                 .HasColumnName("Supplier_ID");
 
+            entity.Property(e => e.PurchaseItemId).HasColumnName("Purchase_Item_ID");
+
             entity.HasOne(d => d.ProductSkuNavigation).WithMany(p => p.Stocks)
                 .HasForeignKey(d => d.ProductSku)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -483,6 +485,11 @@ public partial class SethsuwaPharmacyDbContext : DbContext
             entity.HasOne(d => d.Supplier).WithMany()
                 .HasForeignKey(d => d.SupplierId)
                 .HasConstraintName("FK_Stock_Suppliers");
+
+            entity.HasOne(d => d.PurchaseItem).WithMany(p => p.Stocks)
+                .HasForeignKey(d => d.PurchaseItemId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_Stock_PurchaseItem");
         });
 
         modelBuilder.Entity<Supplier>(entity =>

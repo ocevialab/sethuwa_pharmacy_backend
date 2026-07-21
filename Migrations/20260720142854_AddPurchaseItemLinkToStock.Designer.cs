@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using pharmacyPOS.API.Models;
 
@@ -11,9 +12,11 @@ using pharmacyPOS.API.Models;
 namespace pharmacyPOS.API.Migrations
 {
     [DbContext(typeof(SethsuwaPharmacyDbContext))]
-    partial class SethsuwaPharmacyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260720142854_AddPurchaseItemLinkToStock")]
+    partial class AddPurchaseItemLinkToStock
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

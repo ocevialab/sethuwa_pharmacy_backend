@@ -1,5 +1,6 @@
 public class PurchaseItemDto
 {
+    public long PurchaseItemId { get; set; }
     public string? ProductSKU { get; set; }
     public string? ProductName { get; set; }
     public decimal CostPrice { get; set; }

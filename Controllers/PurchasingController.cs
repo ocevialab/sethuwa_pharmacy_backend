@@ -155,7 +155,8 @@ public class PurchasingController : ControllerBase
                 SellingPrice = item.SellingPrice,
                 ExpireDate = DateOnly.FromDateTime(item.ExpireDate),
                 LotNumber = Guid.NewGuid().ToString().Substring(0, 8),
-                SupplierId = purchase.SupplierId
+                SupplierId = purchase.SupplierId,
+                PurchaseItem = purchaseItem // links the lot back to this purchase item so edits can safely reconcile stock later
             };
             _context.Stocks.Add(stock);
         }
@@ -163,6 +164,258 @@ public class PurchasingController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(new { Message = "Purchase created successfully.", purchase.PurchaseId });
+    }
+
+    /*  EDIT PURCHASE — updates header + line items, reconciling stock lots.
+     *  Safety rule: a line item's quantity can never be reduced (or removed, or have its
+     *  product changed) below however many units have already been sold from its linked
+     *  stock lot. Line items created before Stock->PurchaseItem tracking existed (no link)
+     *  cannot be edited at all. Adding brand-new line items is always allowed.
+     */
+    [RequirePermission("purchasing:edit_purchase")]
+    [HttpPut("{purchaseId}")]
+    public async Task<IActionResult> EditPurchase(string purchaseId, EditPurchaseDto dto)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var purchase = await _context.Purchases
+            .Include(p => p.PurchaseItems)
+            .FirstOrDefaultAsync(p => p.PurchaseId == purchaseId);
+
+        if (purchase == null)
+            return NotFound($"Purchase with ID {purchaseId} not found.");
+
+        var normalizedInvoice = dto.InvoiceNumber.ToUpper().Replace(" ", "");
+        if (!string.Equals(normalizedInvoice, "N/A", StringComparison.OrdinalIgnoreCase))
+        {
+            var invoiceExists = await _context.Purchases
+                .AnyAsync(p => p.InvoiceNumber == normalizedInvoice && p.PurchaseId != purchaseId);
+
+            if (invoiceExists)
+                return Conflict($"A purchase with Invoice Number '{normalizedInvoice}' already exists.");
+        }
+
+        var supplierExists = await _context.Suppliers.AnyAsync(s => s.SupplierId == dto.SupplierId);
+        if (!supplierExists)
+            return BadRequest($"Supplier with ID '{dto.SupplierId}' does not exist.");
+
+        var productSkus = dto.Items
+            .Where(i => !string.IsNullOrWhiteSpace(i.ProductSKU))
+            .Select(i => i.ProductSKU)
+            .Distinct()
+            .ToList();
+
+        if (productSkus.Count == 0)
+            return BadRequest("No valid product SKUs provided in purchase items.");
+
+        var validProducts = await _context.Products
+            .Where(p => productSkus.Contains(p.ProductSku) && !p.IsDeleted)
+            .Select(p => p.ProductSku)
+            .ToListAsync();
+
+        var invalidSkus = productSkus.Except(validProducts).ToList();
+        if (invalidSkus.Any())
+            return BadRequest($"Invalid product SKU(s): {string.Join(", ", invalidSkus)}. Please ensure all products exist and are not deleted.");
+
+        // Load the stock lot linked to each of this purchase's existing items (one lot per item today)
+        var existingItemIds = purchase.PurchaseItems.Select(pi => pi.PurchaseItemId).ToList();
+        var linkedStocks = await _context.Stocks
+            .Where(s => s.PurchaseItemId != null && existingItemIds.Contains(s.PurchaseItemId.Value))
+            .ToListAsync();
+        var stockByItemId = linkedStocks
+            .GroupBy(s => s.PurchaseItemId!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var incomingIds = dto.Items
+            .Where(i => i.PurchaseItemId.HasValue)
+            .Select(i => i.PurchaseItemId!.Value)
+            .ToHashSet();
+
+        // ---- VALIDATION PASS (no mutation yet, so a rejected edit leaves nothing half-applied) ----
+        var errors = new List<string>();
+
+        foreach (var existingItem in purchase.PurchaseItems)
+        {
+            if (incomingIds.Contains(existingItem.PurchaseItemId))
+                continue; // still present, checked below
+
+            stockByItemId.TryGetValue(existingItem.PurchaseItemId, out var linkedStock);
+            if (linkedStock == null)
+            {
+                errors.Add($"Cannot remove item '{existingItem.ProductSku}' — it predates stock tracking and cannot be safely edited.");
+            }
+            else if (linkedStock.QuantityOnHand != existingItem.Quantity)
+            {
+                var sold = existingItem.Quantity - linkedStock.QuantityOnHand;
+                errors.Add($"Cannot remove item '{existingItem.ProductSku}' — {sold} unit(s) already sold from this batch.");
+            }
+        }
+
+        foreach (var incoming in dto.Items.Where(i => i.PurchaseItemId.HasValue))
+        {
+            var existingItem = purchase.PurchaseItems.FirstOrDefault(pi => pi.PurchaseItemId == incoming.PurchaseItemId!.Value);
+            if (existingItem == null)
+            {
+                errors.Add($"Purchase item {incoming.PurchaseItemId} does not belong to this purchase.");
+                continue;
+            }
+
+            stockByItemId.TryGetValue(existingItem.PurchaseItemId, out var linkedStock);
+            if (linkedStock == null)
+            {
+                errors.Add($"Cannot edit item '{existingItem.ProductSku}' — it predates stock tracking and cannot be safely edited.");
+                continue;
+            }
+
+            var quantitySold = existingItem.Quantity - linkedStock.QuantityOnHand;
+            var productChanged = !string.Equals(existingItem.ProductSku, incoming.ProductSKU, StringComparison.OrdinalIgnoreCase);
+
+            if (productChanged)
+            {
+                // Changing the product is treated as remove-old + add-new, so it's only safe if nothing has been sold yet
+                if (quantitySold > 0)
+                    errors.Add($"Cannot change product for item '{existingItem.ProductSku}' — {quantitySold} unit(s) already sold from this batch.");
+            }
+            else if (incoming.Quantity < quantitySold)
+            {
+                errors.Add($"Cannot reduce quantity for '{existingItem.ProductSku}' below {quantitySold} unit(s) already sold (requested {incoming.Quantity}).");
+            }
+        }
+
+        if (errors.Any())
+            return BadRequest(new { Message = "Cannot apply this edit: " + string.Join(" ", errors) });
+
+        // ---- MUTATION PASS ----
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            // 1) Remove items dropped from the list (already verified above that nothing was sold from them)
+            foreach (var existingItem in purchase.PurchaseItems.Where(pi => !incomingIds.Contains(pi.PurchaseItemId)).ToList())
+            {
+                if (stockByItemId.TryGetValue(existingItem.PurchaseItemId, out var linkedStock))
+                    _context.Stocks.Remove(linkedStock);
+
+                _context.PurchaseItems.Remove(existingItem);
+            }
+
+            // 2) Update existing items (or swap them out if the product changed)
+            foreach (var incoming in dto.Items.Where(i => i.PurchaseItemId.HasValue))
+            {
+                var existingItem = purchase.PurchaseItems.First(pi => pi.PurchaseItemId == incoming.PurchaseItemId!.Value);
+                stockByItemId.TryGetValue(existingItem.PurchaseItemId, out var linkedStock);
+                var productChanged = !string.Equals(existingItem.ProductSku, incoming.ProductSKU, StringComparison.OrdinalIgnoreCase);
+
+                if (productChanged)
+                {
+                    if (linkedStock != null)
+                        _context.Stocks.Remove(linkedStock);
+                    _context.PurchaseItems.Remove(existingItem);
+
+                    var newItem = new PurchaseItem
+                    {
+                        PurchaseId = purchase.PurchaseId,
+                        ProductSku = incoming.ProductSKU,
+                        CostPrice = incoming.CostPrice,
+                        SellingPrice = incoming.SellingPrice,
+                        Quantity = incoming.Quantity,
+                        ExpireDate = DateOnly.FromDateTime(incoming.ExpireDate)
+                    };
+                    _context.PurchaseItems.Add(newItem);
+
+                    _context.Stocks.Add(new Stock
+                    {
+                        ProductSku = incoming.ProductSKU,
+                        QuantityOnHand = incoming.Quantity,
+                        CostPrice = incoming.CostPrice,
+                        SellingPrice = incoming.SellingPrice,
+                        ExpireDate = DateOnly.FromDateTime(incoming.ExpireDate),
+                        LotNumber = Guid.NewGuid().ToString().Substring(0, 8),
+                        SupplierId = dto.SupplierId,
+                        PurchaseItem = newItem
+                    });
+                }
+                else
+                {
+                    var delta = incoming.Quantity - existingItem.Quantity;
+
+                    existingItem.Quantity = incoming.Quantity;
+                    existingItem.CostPrice = incoming.CostPrice;
+                    existingItem.SellingPrice = incoming.SellingPrice;
+                    existingItem.ExpireDate = DateOnly.FromDateTime(incoming.ExpireDate);
+
+                    if (linkedStock != null)
+                    {
+                        linkedStock.QuantityOnHand += delta;
+                        linkedStock.CostPrice = incoming.CostPrice;
+                        linkedStock.SellingPrice = incoming.SellingPrice;
+                        linkedStock.ExpireDate = DateOnly.FromDateTime(incoming.ExpireDate);
+                        linkedStock.SupplierId = dto.SupplierId;
+                    }
+                }
+            }
+
+            // 3) Add brand-new items
+            foreach (var incoming in dto.Items.Where(i => !i.PurchaseItemId.HasValue))
+            {
+                var newItem = new PurchaseItem
+                {
+                    PurchaseId = purchase.PurchaseId,
+                    ProductSku = incoming.ProductSKU,
+                    CostPrice = incoming.CostPrice,
+                    SellingPrice = incoming.SellingPrice,
+                    Quantity = incoming.Quantity,
+                    ExpireDate = DateOnly.FromDateTime(incoming.ExpireDate)
+                };
+                _context.PurchaseItems.Add(newItem);
+
+                _context.Stocks.Add(new Stock
+                {
+                    ProductSku = incoming.ProductSKU,
+                    QuantityOnHand = incoming.Quantity,
+                    CostPrice = incoming.CostPrice,
+                    SellingPrice = incoming.SellingPrice,
+                    ExpireDate = DateOnly.FromDateTime(incoming.ExpireDate),
+                    LotNumber = Guid.NewGuid().ToString().Substring(0, 8),
+                    SupplierId = dto.SupplierId,
+                    PurchaseItem = newItem
+                });
+            }
+
+            // 4) Update purchase header (payment status/method are intentionally untouched here —
+            // use the dedicated payment-status endpoint for those)
+            purchase.InvoiceNumber = normalizedInvoice;
+            purchase.InvoiceDate = DateOnly.FromDateTime(dto.InvoiceDate);
+            purchase.PaymentDueDate = dto.PaymentDueDate.HasValue ? DateOnly.FromDateTime(dto.PaymentDueDate.Value) : null;
+            purchase.SupplierId = dto.SupplierId;
+            purchase.TotalAmount = dto.TotalAmount;
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(new
+            {
+                Message = "Purchase updated successfully.",
+                purchase.PurchaseId
+            });
+        }
+        catch (DbUpdateException ex)
+        {
+            await transaction.RollbackAsync();
+
+            if (ex.InnerException is Microsoft.Data.SqlClient.SqlException sqlEx && sqlEx.Number == 547)
+            {
+                _logger.LogError("Foreign key violation while editing purchase: {Message}", ex.Message);
+                return BadRequest("Cannot update purchase: invalid Supplier ID or related entity does not exist.");
+            }
+            return StatusCode(500, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, ex.Message);
+        }
     }
 
 
@@ -343,6 +596,7 @@ public class PurchasingController : ControllerBase
 
                 return new PurchaseItemDto
                 {
+                    PurchaseItemId = pi.PurchaseItemId,
                     ProductSKU = pi.ProductSku,
                     ProductName = productName,
                     Quantity = pi.Quantity,
@@ -484,6 +738,7 @@ public class PurchasingController : ControllerBase
 
                 return new PurchaseItemDto
                 {
+                    PurchaseItemId = pi.PurchaseItemId,
                     ProductSKU = pi.ProductSku,
                     ProductName = productName,
                     Quantity = pi.Quantity,
@@ -831,6 +1086,7 @@ public class PurchasingController : ControllerBase
 
                 return new PurchaseItemDto
                 {
+                    PurchaseItemId = pi.PurchaseItemId,
                     ProductSKU = pi.ProductSku,
                     ProductName = productName,
                     Quantity = pi.Quantity,

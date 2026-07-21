@@ -61,6 +61,7 @@ public static class PermissionSeedData
         new("permission:view_all", "View All Permissions", "Permission", "Allows viewing all available permissions in the system", "/api/Permission/all", "GET"),
 
         new("purchasing:create", "Create Purchase", "Purchasing", "Allows creating a new purchase order", "/api/Purchasing", "POST"),
+        new("purchasing:edit_purchase", "Edit Purchase", "Purchasing", "Allows editing an existing purchase's items and details, subject to stock-safety checks", "/api/Purchasing/{purchaseId}", "PUT"),
         new("purchasing:search_products", "Search Products for Purchase", "Purchasing", "Allows searching products when creating purchases", "/api/Purchasing/search", "GET"),
         new("purchasing:update_payment_status", "Update Payment Status", "Purchasing", "Allows updating payment status of a purchase", "/api/Purchasing/{id}/payment-status", "PUT"),
         new("purchasing:view", "View Purchase", "Purchasing", "Allows viewing purchase details", "/api/Purchasing/{id}", "GET"),

@@ -22,4 +22,6 @@ public partial class PurchaseItem
     public virtual Product ProductSkuNavigation { get; set; } = null!;
 
     public virtual Purchase Purchase { get; set; } = null!;
+
+    public virtual ICollection<Stock> Stocks { get; set; } = new List<Stock>();
 }
